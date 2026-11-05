@@ -1,1 +1,257 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALULA CONKER</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;padding:16px;
+ background:linear-gradient(145deg,#173d2b,#10271e);
+ color:#fff;font-family:Arial,sans-serif;text-align:center
+}
+h1{color:#f5d36b;letter-spacing:2px}
+.subtitle{color:#e8d7a0}
+button{
+ border:0;border-radius:10px;padding:12px 16px;
+ margin:5px;background:#e7bd52;color:#193222;
+ font-weight:bold;font-size:15px
+}
+button:disabled{opacity:.4}
+.table{
+ max-width:650px;margin:20px auto;padding:15px;
+ border:3px solid #d7b34f;border-radius:25px;
+ background:#28583c
+}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.player{
+ padding:12px;background:#193d2b;border-radius:12px;
+ border:1px solid #d7b34f
+}
+.cards{
+ display:flex;flex-wrap:wrap;justify-content:center;
+ gap:7px;margin:18px 0
+}
+.card{
+ background:#fff;color:#171717;
+ border:2px solid #ddd;border-radius:8px;
+ width:48px;height:72px;font-size:17px;
+ font-weight:bold;display:flex;align-items:center;
+ justify-content:center;flex-direction:column;
+ box-shadow:0 2px 5px #102018
+}
+.card.red{color:#c52222}
+.card.selected{border:4px solid #e5bd43;transform:translateY(-7px)}
+.area{margin:20px 0}
+#message{min-height:45px;color:#ffe39a}
+.small{font-size:12px;color:#e5d7a8}
+</style>
+</head>
+<body>
+
+<h1>🌼 ALULA CONKER</h1>
+<p class="subtitle">Ethiopian Card Game | የኮንከር ጨዋታ</p>
+
+<button onclick="setLanguage('en')">English 🇬🇧</button>
+<button onclick="setLanguage('am')">አማርኛ 🇪🇹</button>
+
+<div class="table">
+ <h2 id="tableTitle">Your Conker Table</h2>
+
+ <div class="players">
+  <div class="player">🤖 Computer 1<br><span id="bot1">13 cards</span></div>
+  <div class="player">🤖 Computer 2<br><span id="bot2">13 cards</span></div>
+  <div class="player">🤖 Computer 3<br><span id="bot3">13 cards</span></div>
+  <div class="player">👤 You<br><span id="you">14 cards</span></div>
+ </div>
+
+ <div class="area">
+  <p>🂠 Draw pile</p>
+  <button id="draw" onclick="drawDeck()">Draw a card</button>
+  <p>Discard pile</p>
+  <div id="discard" class="cards"></div>
+  <button id="take" onclick="takeDiscard()">Take top discard</button>
+ </div>
+
+ <h3 id="handTitle">Your cards</h3>
+ <p class="small">Select one card to discard after drawing.</p>
+ <div id="hand" class="cards"></div>
+
+ <p id="message">Welcome to ALULA CONKER!</p>
+ <button onclick="startGame()">New game</button>
+ <button onclick="discardCard()">Discard selected card</button>
+</div>
+
+<p class="small">ALULA CONKER • Free to play • No payments</p>
+
+<script>
+const suits=['♠','♥','♦','♣'];
+const ranks=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+let deck=[],hand=[],discard=[],selected=null;
+let drawn=false,language='en',busy=false;
+
+const messages={
+ en:{
+ welcome:'Welcome to ALULA CONKER!',
+ draw:'Draw a card or take the top discard.',
+ select:'Select a card to discard.',
+ wait:'Computers are playing...',
+ error:'You must draw a card first.',
+ new:'New game started!',
+ end:'Game over. Start a new game!',
+ discard:'You discarded ',
+ taken:'You picked up the discard.',
+ },
+ am:{
+ welcome:'እንኳን ወደ አሉላ ኮንከር በደህና መጡ!',
+ draw:'ካርድ ይውሰዱ ወይም የተጣለውን ይውሰዱ።',
+ select:'ለመጣል ካርድ ይምረጡ።',
+ wait:'ኮምፒውተሮቹ እየተጫወቱ ነው...',
+ error:'መጀመሪያ ካርድ ይውሰዱ።',
+ new:'አዲስ ጨዋታ ተጀምሯል!',
+ end:'ጨዋታው ተጠናቋል።',
+ discard:'የጣሉት ካርድ ',
+ taken:'የተጣለውን ካርድ ወስደዋል።'
+ }
+};
+
+function setLanguage(lang){
+ language=lang;
+ document.getElementById('tableTitle').textContent=
+ lang==='en'?'Your Conker Table':'የኮንከር ጠረጴዛ';
+ document.getElementById('handTitle').textContent=
+ lang==='en'?'Your cards':'የእርስዎ ካርዶች';
+ say(messages[lang].welcome);
+}
+
+function say(text){
+ document.getElementById('message').textContent=text;
+}
+
+function shuffle(a){
+ for(let i=a.length-1;i>0;i--){
+  let j=Math.floor(Math.random()*(i+1));
+  [a[i],a[j]]=[a[j],a[i]];
+ }
+ return a;
+}
+
+function makeDeck(){
+ let cards=[];
+ for(let s of suits){
+  for(let r of ranks) cards.push({suit:s,rank:r});
+ }
+ return shuffle(cards);
+}
+
+function cardName(c){return c.rank+c.suit;}
+
+function startGame(){
+ deck=makeDeck();
+ hand=deck.splice(0,14);
+ for(let i=1;i<=3;i++){
+  document.getElementById('bot'+i).textContent='13 cards';
+ }
+ deck.splice(0,39);
+ discard=[deck.pop()];
+ selected=null;
+ drawn=false;
+ busy=false;
+ render();
+ say(messages[language].new);
+}
+
+function render(){
+ document.getElementById('hand').innerHTML='';
+ hand.forEach((c,i)=>{
+  let el=document.createElement('button');
+  el.className='card '+('♥♦'.includes(c.suit)?'red ':'')+
+   (selected===i?'selected':'');
+  el.textContent=cardName(c);
+  el.onclick=()=>{
+   if(!drawn||busy)return;
+   selected=i;
+   render();
+  };
+  document.getElementById('hand').appendChild(el);
+ });
+ document.getElementById('discard').innerHTML='';
+ if(discard.length){
+  let c=discard[discard.length-1];
+  let el=document.createElement('div');
+  el.className='card '+('♥♦'.includes(c.suit)?'red':'');
+  el.textContent=cardName(c);
+  document.getElementById('discard').appendChild(el);
+ }
+ document.getElementById('you').textContent=hand.length+' cards';
+ document.getElementById('draw').disabled=drawn||busy;
+ document.getElementById('take').disabled=drawn||busy||!discard.length;
+}
+
+function drawDeck(){
+ if(drawn||busy)return;
+ if(!deck.length){say(messages[language].end);return;}
+ hand.push(deck.pop());
+ drawn=true;
+ selected=null;
+ render();
+ say(messages[language].select);
+}
+
+function takeDiscard(){
+ if(drawn||busy||!discard.length)return;
+ hand.push(discard.pop());
+ drawn=true;
+ selected=null;
+ render();
+ say(messages[language].taken);
+}
+
+function discardCard(){
+ if(!drawn||selected===null||busy){
+  say(messages[language].error);
+  return;
+ }
+ let c=hand.splice(selected,1)[0];
+ discard.push(c);
+ selected=null;
+ drawn=false;
+ render();
+ say(messages[language].discard+cardName(c));
+ setTimeout(botTurn,800);
+}
+
+function botTurn(){
+ if(!deck.length){
+  say(messages[language].end);
+  return;
+ }
+ busy=true;
+ render();
+ let count=0;
+ function next(){
+  if(count>=3){
+   busy=false;
+   render();
+   say(messages[language].draw);
+   return;
+  }
+  let useDiscard=discard.length&&Math.random()<0.25;
+  if(useDiscard)handBot.push(discard.pop());
+  else handBot.push(deck.pop());
+  let random=Math.floor(Math.random()*handBot.length);
+  discard.push(handBot.splice(random,1)[0]);
+  count++;
+  document.getElementById('bot'+count).textContent='13 cards';
+  setTimeout(next,450);
+ }
+ let handBot=[];
+ next();
+}
+
+startGame();
+</script>
+</body>
+</html>
